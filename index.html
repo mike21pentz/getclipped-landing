@@ -613,11 +613,10 @@
     btn.disabled = true;
     btn.textContent = 'Submitting...';
 
-    // Submit to Google Forms
+    // Submit to Google Forms via hidden iframe
     const formId = '1FAIpQLSechRyCp-1o3LBo8O1z8aDS-uSOSel35nvWwjkXeE_wQR967g';
-    const formUrl = `https://docs.google.com/forms/d/e/${formId}/formResponse`;
+    const formUrl = 'https://docs.google.com/forms/d/e/' + formId + '/formResponse';
 
-    // We use a hidden iframe to submit — avoids CORS issues
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     iframe.name = 'hidden_iframe';
@@ -628,21 +627,24 @@
     form.action = formUrl;
     form.target = 'hidden_iframe';
 
-    // NOTE: These entry IDs need to be updated with your actual Google Form field IDs
-    // To find them: open your form, right-click each field, inspect element, look for "entry.XXXXXXX"
     const fields = {
-      'entry.name': name,
-      'entry.email': email,
-      'entry.role': selectedRole
+      'entry.29974910': name,
+      'entry.8716235': email,
+      'entry.136173991': selectedRole
     };
 
-    // Temporary: store locally until field IDs are confirmed
-    const waitlistData = JSON.parse(localStorage.getItem('waitlist') || '[]');
-    waitlistData.push({ name, email, role: selectedRole, date: new Date().toISOString() });
-    localStorage.setItem('waitlist', JSON.stringify(waitlistData));
+    Object.entries(fields).forEach(function(pair) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = pair[0];
+      input.value = pair[1];
+      form.appendChild(input);
+    });
 
-    // Show success regardless (Google Forms CORS blocks response)
-    setTimeout(() => {
+    document.body.appendChild(form);
+    form.submit();
+
+    setTimeout(function() {
       document.getElementById('modalForm').style.display = 'none';
       document.getElementById('modalSuccess').style.display = 'block';
     }, 600);
