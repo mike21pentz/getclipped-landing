@@ -63,18 +63,25 @@
   .stat-num span { color: var(--accent); }
   .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
 
-  /* Floating job cards animation */
-  .floating-jobs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-  .fj-card { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; width: 220px; opacity: 0; }
-  .fj-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .fj-title { font-size: 12px; font-weight: 600; color: var(--white); line-height: 1.3; flex: 1; margin-right: 8px; }
-  .fj-price { font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  /* Floating clipper cards animation */
+  .floating-jobs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .fj-card { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; width: 240px; opacity: 0; }
+  .fj-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .fj-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; flex-shrink: 0; }
+  .fj-av-yellow { background: linear-gradient(135deg, #e8ff47, #a8c900); color: #000; }
+  .fj-av-red    { background: linear-gradient(135deg, #ff4d6d, #c9003e); color: #fff; }
+  .fj-av-blue   { background: linear-gradient(135deg, #00e5ff, #0099bb); color: #000; }
+  .fj-av-purple { background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; }
+  .fj-name { font-size: 13px; font-weight: 500; }
+  .fj-role { font-size: 11px; color: var(--muted); }
+  .fj-specialty { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .fj-tags { display: flex; gap: 5px; flex-wrap: wrap; }
   .fj-tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
-  .fj-tag-green { background: rgba(232,255,71,0.12); color: var(--accent); }
-  .fj-tag-red { background: rgba(255,77,109,0.12); color: var(--accent2); }
-  .fj-tag-blue { background: rgba(0,229,255,0.12); color: var(--accent3); }
-  .fj-tag-gray { background: rgba(255,255,255,0.06); color: var(--muted); }
+  .fj-tag-green  { background: rgba(232,255,71,0.12); color: var(--accent); }
+  .fj-tag-red    { background: rgba(255,77,109,0.12); color: var(--accent2); }
+  .fj-tag-blue   { background: rgba(0,229,255,0.12); color: var(--accent3); }
+  .fj-tag-gray   { background: rgba(255,255,255,0.06); color: var(--muted); }
+  .fj-price { position: absolute; top: 14px; right: 14px; font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: var(--accent); }
   .live-dot { display: inline-block; width: 6px; height: 6px; background: #22c55e; border-radius: 50%; margin-right: 4px; animation: pulse 1.5s ease infinite; }
 
   .marquee-section { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 16px 0; overflow: hidden; background: var(--deep); }
@@ -585,79 +592,89 @@
 <div class="footer-bottom"><span>Built for creators. Powered by clippers.</span><span>All payments protected by escrow</span></div>
 
 <script>
-  // Floating job cards
-  const JOBS = [
-    { title: 'xQc Highlights Reel', price: '$20/clip', tags: [['Gaming','green'],['TikTok','gray'],['Shorts','gray']] },
-    { title: 'Valorant Esports Clips', price: '$18/clip', tags: [['Gaming','green'],['Esports','gray']] },
-    { title: 'IRL Vlog: Daily Clips', price: '$15/clip', tags: [['IRL','red'],['Reels','gray']] },
-    { title: 'Podcast Best Moments', price: '$12/clip', tags: [['Podcast','blue'],['YouTube','gray']] },
-    { title: 'Reaction Compilation', price: '$14/clip', tags: [['Reaction','red'],['Shorts','gray']] },
-    { title: 'Warzone Highlight Reel', price: '$22/clip', tags: [['Gaming','green'],['FPS','gray']] },
-    { title: 'Cooking Stream Clips', price: '$10/clip', tags: [['IRL','red'],['TikTok','gray']] },
-    { title: 'Variety Stream Top 10', price: '$16/clip', tags: [['Variety','blue'],['Reels','gray']] },
-    { title: 'Minecraft Build Timelapse', price: '$13/clip', tags: [['Gaming','green'],['Shorts','gray']] },
-    { title: 'Chess Stream Moments', price: '$11/clip', tags: [['Variety','blue'],['TikTok','gray']] },
-    { title: 'Music Producer Clips', price: '$18/clip', tags: [['IRL','red'],['YouTube','gray']] },
-    { title: 'Speedrun World Record', price: '$25/clip', tags: [['Gaming','green'],['Esports','gray']] },
+  // Floating clipper cards
+  const CLIPPERS = [
+    { initials:'JK', av:'yellow', name:'Jake K.',    available:true,  specialty:'FPS & Esports Specialist',   price:'$18/clip', tags:[['Gaming','green'],['TikTok','gray'],['Shorts','gray']] },
+    { initials:'MR', av:'red',    name:'Maya R.',    available:true,  specialty:'IRL & Podcast Clips',         price:'$22/clip', tags:[['IRL','red'],['Reels','gray'],['Podcast','gray']] },
+    { initials:'DL', av:'blue',   name:'Dev L.',     available:false, specialty:'Reaction & Variety',          price:'$15/clip', tags:[['Reaction','blue'],['Variety','gray']] },
+    { initials:'SK', av:'purple', name:'Sam K.',     available:true,  specialty:'Warzone Highlight Specialist', price:'$25/clip', tags:[['Gaming','green'],['FPS','gray']] },
+    { initials:'AT', av:'yellow', name:'Alex T.',    available:true,  specialty:'Speedrun & Esports',           price:'$20/clip', tags:[['Gaming','green'],['Esports','gray']] },
+    { initials:'NW', av:'red',    name:'Nina W.',    available:false, specialty:'Cooking & Lifestyle Clips',   price:'$12/clip', tags:[['IRL','red'],['TikTok','gray']] },
+    { initials:'CR', av:'blue',   name:'Chris R.',   available:true,  specialty:'Minecraft & Building Content', price:'$13/clip', tags:[['Gaming','green'],['Shorts','gray']] },
+    { initials:'JP', av:'purple', name:'Jordan P.',  available:true,  specialty:'Podcast Best Moments',         price:'$14/clip', tags:[['Podcast','blue'],['YouTube','gray']] },
+    { initials:'LM', av:'yellow', name:'Leo M.',     available:false, specialty:'Music & Creative Streams',    price:'$18/clip', tags:[['IRL','red'],['Reels','gray']] },
+    { initials:'ZH', av:'red',    name:'Zara H.',    available:true,  specialty:'Variety Stream Highlights',   price:'$16/clip', tags:[['Variety','blue'],['TikTok','gray']] },
+    { initials:'BF', av:'blue',   name:'Ben F.',     available:true,  specialty:'Chess & Strategy Content',    price:'$11/clip', tags:[['Variety','blue'],['YouTube','gray']] },
+    { initials:'RC', av:'purple', name:'Riley C.',   available:false, specialty:'Valorant & FPS Clips',        price:'$19/clip', tags:[['Gaming','green'],['Esports','gray']] },
   ];
 
-  const tagClass = { green: 'fj-tag-green', red: 'fj-tag-red', blue: 'fj-tag-blue', gray: 'fj-tag-gray' };
-  const container = document.getElementById('floatingJobs');
-  const heroEl = container.parentElement;
+  const avClass = { yellow:'fj-av-yellow', red:'fj-av-red', blue:'fj-av-blue', purple:'fj-av-purple' };
+  const tagClass = { green:'fj-tag-green', red:'fj-tag-red', blue:'fj-tag-blue', gray:'fj-tag-gray' };
+  const fjContainer = document.getElementById('floatingJobs');
+  const fjHero = fjContainer.parentElement;
 
-  function spawnCard() {
-    const job = JOBS[Math.floor(Math.random() * JOBS.length)];
+  // Divide hero into horizontal lanes so cards don't overlap the headline
+  const LANES = [0.08, 0.22, 0.62, 0.78, 0.90];
+
+  function spawnClipper() {
+    const c = CLIPPERS[Math.floor(Math.random() * CLIPPERS.length)];
     const card = document.createElement('div');
     card.className = 'fj-card';
 
-    const tagsHtml = job.tags.map(([label, color]) =>
+    const roleHtml = c.available
+      ? `<span class="live-dot"></span>Available now`
+      : `${(4.5 + Math.random() * 0.5).toFixed(1)} stars`;
+
+    const tagsHtml = c.tags.map(([label, color]) =>
       `<span class="fj-tag ${tagClass[color]}">${label}</span>`
     ).join('');
 
     card.innerHTML = `
-      <div class="fj-top">
-        <div class="fj-title">${job.title}</div>
-        <div class="fj-price">${job.price}</div>
+      <div class="fj-card-top">
+        <div class="fj-avatar ${avClass[c.av]}">${c.initials}</div>
+        <div>
+          <div class="fj-name">${c.name}</div>
+          <div class="fj-role">${roleHtml}</div>
+        </div>
       </div>
+      <div class="fj-specialty">${c.specialty}</div>
       <div class="fj-tags">${tagsHtml}</div>
+      <div class="fj-price">${c.price}</div>
     `;
 
-    const heroH = heroEl.offsetHeight;
-    const heroW = heroEl.offsetWidth;
-    const top = 80 + Math.random() * (heroH - 200);
-    const startX = Math.random() > 0.5 ? -240 : heroW + 10;
-    const endX = startX < 0 ? heroW + 10 : -240;
-    const duration = 12000 + Math.random() * 8000;
-    const drift = (Math.random() - 0.5) * 60;
+    const heroH = fjHero.offsetHeight;
+    const heroW = fjHero.offsetWidth;
+    const lane = LANES[Math.floor(Math.random() * LANES.length)];
+    const top = heroH * lane;
+    const goRight = Math.random() > 0.5;
+    const startX = goRight ? -260 : heroW + 10;
+    const endX   = goRight ? heroW + 10 : -260;
+    // Slow, steady drift: 22-30s to cross the screen
+    const duration = 22000 + Math.random() * 8000;
 
-    card.style.cssText += `top:${top}px; left:${startX}px;`;
-    container.appendChild(card);
+    card.style.top = top + 'px';
+    card.style.left = startX + 'px';
+    fjContainer.appendChild(card);
 
     const start = performance.now();
     function tick(now) {
       const t = Math.min((now - start) / duration, 1);
-      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-      const x = startX + (endX - startX) * ease;
-      const y = top + Math.sin(t * Math.PI) * drift;
-      const fadeIn = Math.min(t / 0.12, 1);
-      const fadeOut = t > 0.88 ? (1 - t) / 0.12 : 1;
-      card.style.transform = `translate(${x - startX}px, ${y - top}px)`;
-      card.style.opacity = (fadeIn * fadeOut * 0.85).toString();
+      const x = startX + (endX - startX) * t;
+      // Fade in over first 8%, fade out over last 8%
+      const fadeIn  = Math.min(t / 0.08, 1);
+      const fadeOut = t > 0.92 ? (1 - t) / 0.08 : 1;
+      card.style.transform = `translateX(${x - startX}px)`;
+      card.style.opacity = (fadeIn * fadeOut * 0.45).toString();
       if (t < 1) requestAnimationFrame(tick);
       else card.remove();
     }
     requestAnimationFrame(tick);
   }
 
-  // Stagger initial spawns then keep a steady stream going
-  let spawnCount = 0;
-  function scheduleSpawn() {
-    spawnCard();
-    spawnCount++;
-    const delay = spawnCount < 6 ? 600 + spawnCount * 400 : 2000 + Math.random() * 2000;
-    setTimeout(scheduleSpawn, delay);
-  }
-  setTimeout(scheduleSpawn, 800);
+  // Stagger 5 cards on load, then keep spawning every 3-5s
+  for (let i = 0; i < 5; i++) setTimeout(spawnClipper, i * 1400);
+  function loopSpawn() { spawnClipper(); setTimeout(loopSpawn, 3000 + Math.random() * 2000); }
+  setTimeout(loopSpawn, 5 * 1400);
 
   // Cursor
   const cursor = document.getElementById('cursor');
