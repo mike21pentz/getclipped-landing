@@ -301,13 +301,16 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-  @keyframes float { 0%, 100% { transform: translateY(-50%); } 50% { transform: translateY(calc(-50% - 10px)); } }
 
   .reveal { opacity: 0; transform: translateY(30px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
   .reveal.visible { opacity: 1; transform: translateY(0); }
 
+  @media (max-width: 900px) {
+    .floating-jobs { display: none; }
+  }
+
   @media (max-width: 1024px) {
-    .floating-jobs { opacity: 0.4; }
+    .floating-jobs { opacity: 0.35; }
     .split { grid-template-columns: 1fr; }
     .audition-inner { grid-template-columns: 1fr; }
     .steps-grid { grid-template-columns: 1fr; }
@@ -613,11 +616,31 @@
   const fjContainer = document.getElementById('floatingJobs');
   const fjHero = fjContainer.parentElement;
 
-  // Divide hero into horizontal lanes so cards don't overlap the headline
-  const LANES = [0.08, 0.22, 0.62, 0.78, 0.90];
+  // 3 lanes — one card per lane, no overlaps ever
+  // Expressed as fractions of hero width; clamped so cards don't clip the right edge
+  const LANE_FRACTIONS = [0.60, 0.72, 0.84];
+  const freeLanes = [0, 1, 2];       // indices into LANE_FRACTIONS that are available
+  const activeClippers = new Set();  // clipper indices currently on screen
 
   function spawnClipper() {
-    const c = CLIPPERS[Math.floor(Math.random() * CLIPPERS.length)];
+    if (freeLanes.length === 0) return; // all lanes occupied
+
+    // Pick a random free lane
+    const laneSlot = Math.floor(Math.random() * freeLanes.length);
+    const laneIdx  = freeLanes.splice(laneSlot, 1)[0];
+
+    // Pick a clipper not currently visible
+    const available = CLIPPERS
+      .map((_, i) => i)
+      .filter(i => !activeClippers.has(i));
+    if (available.length === 0) {
+      freeLanes.push(laneIdx); // put lane back
+      return;
+    }
+    const clipperIdx = available[Math.floor(Math.random() * available.length)];
+    activeClippers.add(clipperIdx);
+
+    const c = CLIPPERS[clipperIdx];
     const card = document.createElement('div');
     card.className = 'fj-card';
 
@@ -644,37 +667,51 @@
 
     const heroH = fjHero.offsetHeight;
     const heroW = fjHero.offsetWidth;
-    const lane = LANES[Math.floor(Math.random() * LANES.length)];
-    const top = heroH * lane;
-    const goRight = Math.random() > 0.5;
-    const startX = goRight ? -260 : heroW + 10;
-    const endX   = goRight ? heroW + 10 : -260;
-    // Slow, steady drift: 22-30s to cross the screen
-    const duration = 22000 + Math.random() * 8000;
 
-    card.style.top = top + 'px';
-    card.style.left = startX + 'px';
+    const left = Math.min(heroW * LANE_FRACTIONS[laneIdx], heroW - 264);
+
+    // Randomly scroll top-to-bottom or bottom-to-top
+    const goDown = Math.random() > 0.5;
+    const startY = goDown ? -200 : heroH + 20;
+    const endY   = goDown ? heroH + 20 : -200;
+    // 18–28s to drift through the full hero height
+    const duration = 18000 + Math.random() * 10000;
+
+    card.style.left = left + 'px';
+    card.style.top  = '0px';
     fjContainer.appendChild(card);
 
     const start = performance.now();
     function tick(now) {
       const t = Math.min((now - start) / duration, 1);
-      const x = startX + (endX - startX) * t;
-      // Fade in over first 8%, fade out over last 8%
-      const fadeIn  = Math.min(t / 0.08, 1);
-      const fadeOut = t > 0.92 ? (1 - t) / 0.08 : 1;
-      card.style.transform = `translateX(${x - startX}px)`;
-      card.style.opacity = (fadeIn * fadeOut * 0.45).toString();
-      if (t < 1) requestAnimationFrame(tick);
-      else card.remove();
+      const y = startY + (endY - startY) * t;
+      // Fade in over first 7%, fade out over last 7%
+      const fadeIn  = Math.min(t / 0.07, 1);
+      const fadeOut = t > 0.93 ? (1 - t) / 0.07 : 1;
+      card.style.transform = `translateY(${y}px)`;
+      card.style.opacity   = (fadeIn * fadeOut * 0.52).toString();
+      if (t < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        card.remove();
+        freeLanes.push(laneIdx);       // free the lane
+        activeClippers.delete(clipperIdx); // free the clipper
+      }
     }
     requestAnimationFrame(tick);
   }
 
-  // Stagger 5 cards on load, then keep spawning every 3-5s
-  for (let i = 0; i < 5; i++) setTimeout(spawnClipper, i * 1400);
-  function loopSpawn() { spawnClipper(); setTimeout(loopSpawn, 3000 + Math.random() * 2000); }
-  setTimeout(loopSpawn, 5 * 1400);
+  // Stagger initial cards across lanes so the right side fills in naturally
+  spawnClipper();
+  setTimeout(spawnClipper, 1800);
+  setTimeout(spawnClipper, 3600);
+
+  // Spawn loop — fires every 1.5–3s, no-ops if all lanes are occupied
+  function loopSpawn() {
+    spawnClipper();
+    setTimeout(loopSpawn, 1500 + Math.random() * 2000);
+  }
+  setTimeout(loopSpawn, 4000);
 
   // Cursor
   const cursor = document.getElementById('cursor');
