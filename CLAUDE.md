@@ -2,6 +2,10 @@
 
 Hiring marketplace connecting content creators/streamers with professional clippers (video editors for TikTok, YouTube Shorts, Reels). Like Upwork for the clipping economy.
 
+## Working Style
+
+**Never guess.** If you don't know the answer — especially for third-party tools, external dashboards (Vercel, Supabase, Namecheap, Stripe, etc.), or anything outside the codebase — say so clearly and look it up or ask. Guessing wastes the user's time.
+
 ## Repo Structure
 
 ```
