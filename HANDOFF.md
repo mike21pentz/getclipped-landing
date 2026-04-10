@@ -1,4 +1,4 @@
-# GetClipped — Session Handoff (2026-04-09 v2)
+# GetClipped — Session Handoff (2026-04-10)
 
 > Paste this file into the next chat to pick up where we left off.
 
@@ -21,7 +21,7 @@ A two-sided marketplace connecting content creators with professional clippers (
 | Auth + DB | Supabase (project ID: `clqqdgjoyjamojlqfxig`) |
 | Storage | Supabase Storage — `clips` bucket (private, signed URLs) |
 | Payments | Stripe Connect (escrow) — schema + routes exist, UI not wired |
-| Deployment | Vercel |
+| Deployment | Vercel (app) + GitHub Pages (landing) |
 | Package manager | npm |
 
 ---
@@ -29,8 +29,8 @@ A two-sided marketplace connecting content creators with professional clippers (
 ## Repo Structure
 
 ```
-/getclipped-landing/    Static landing page (GitHub Pages)
-/getclipped-app/        Next.js 16 app (Vercel)
+/getclipped-landing/    Static landing page (GitHub Pages → getclipped.live)
+/getclipped-app/        Next.js 16 app (Vercel → getclipped-app.vercel.app)
 ```
 
 ### Supabase Patterns
@@ -57,7 +57,7 @@ const supabase = createClient();
 --text-secondary: #8a8a8a
 --accent:         #c8f135   (yellow-lime — CTAs, active states)
 
-Font: var(--font-geist) on ALL app + auth pages (Barlow fully removed)
+Font: var(--font-geist) on ALL app + auth pages
 
 Responsive page padding: className="page-container"
   Mobile:  32px 20px 80px
@@ -105,8 +105,15 @@ pending  → bg: rgba(107,114,128,0.12), text: #9ca3af
 id, name, account_type ('creator'|'clipper'), bio, avatar_url,
 channel_url (creator), content_niche (creator), portfolio_urls[] (clipper),
 ai_tools[] (clipper — tools they use e.g. "Opus Clip", "CapCut"),
+roles text[] — ['creator'] | ['clipper'] | ['creator','clipper'] ← NEW dual-role field
 reputation_score int, avg_rating numeric, ratings_count int, completed_jobs_count int,
 stripe_account_id, stripe_onboarding_complete bool
+```
+
+Migration already run:
+```sql
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS roles text[] DEFAULT '{}';
+UPDATE public.profiles SET roles = ARRAY[account_type] WHERE roles = '{}' OR roles IS NULL;
 ```
 
 ### jobs
@@ -132,7 +139,7 @@ UNIQUE (job_id, rater_id)
 RLS: public read, authenticated insert (rater_id = auth.uid())
 ```
 
-### retainer_contracts ← NEW
+### retainer_contracts
 ```
 id, creator_id, clipper_id, job_id (optional — the job that spawned it),
 title, description, clips_per_month int, rate_per_clip int,
@@ -156,66 +163,80 @@ job_invites           — creator invites specific clipper to job
 
 ---
 
+## Dual Role System (NEW — built Apr 10)
+
+Users can hold both `creator` and `clipper` roles on the same account.
+
+**How it works:**
+- `profiles.roles text[]` stores all roles a user has (e.g. `['creator', 'clipper']`)
+- Active role stored in cookie `active_role` — read server-side by layout, dashboard, and job detail pages
+- `AppShell.tsx` manages `activeRole` state; switching sets the cookie + calls `router.refresh()`
+
+**UI:**
+- **Sidebar role switcher**: Creator/Clipper toggle pill — shown only when user has both roles
+- **"Add Clipper Account"** in sidebar profile popover — shown only to creator-only users; calls `POST /api/profile/add-clipper-role`, sets cookie to `clipper`, redirects to clipper onboarding
+- Dashboard, job detail, and sidebar nav all adapt to the active role via cookie
+
+**Key files:**
+```
+app/api/profile/add-clipper-role/route.ts  — adds 'clipper' to profiles.roles
+app/(app)/layout.tsx                        — fetches roles, reads cookie, passes to AppShell
+components/AppShell.tsx                     — manages activeRole state + cookie
+components/sidebar.tsx                      — role switcher toggle + "Add Clipper Account"
+app/(app)/dashboard/page.tsx               — reads active_role cookie
+app/(app)/jobs/[id]/page.tsx               — reads active_role cookie; !isOwner guard on audition form
+```
+
+**Business rule:** A user cannot audition for a job they posted, even in clipper mode (`!isOwner` guard on the audition form).
+
+---
+
 ## What's Built (all routes working)
 
 | Route | Notes |
 |---|---|
-| `/dashboard` | Creator + clipper views, real stat cards (total spent/earned computed), quick actions |
-| `/browse` | Job board — hero card, mini-row list, filters, AI search, match scoring, save buttons for clippers |
+| `/dashboard` | Creator + clipper views, real stat cards, quick actions, reads active_role cookie |
+| `/browse` | Job board — hero card (fully clickable), mini-row list, filters, AI search, match scoring, save buttons |
 | `/jobs` | Clipper's "My Applications" — grouped by status |
-| `/jobs/[id]` | Job detail, audition form, delivery, proposals panel with reputation + AI tools; "Propose Retainer" CTA on completed jobs |
+| `/jobs/[id]` | Job detail, audition form, delivery, proposals panel; reads active_role cookie; blocked for job owner |
 | `/jobs/new` | Two-column post-a-job form with sticky preview |
-| `/pipeline`, `/pipeline/[id]` | AI pipeline jobs (separate from regular jobs) |
-| `/messages`, `/messages/[id]` | Real-time conversation threads (Supabase Realtime + optimistic updates), unread badges |
-| `/profile` | Edit name/bio/avatar, AI tools (clippers), portfolio, channel info (creators) |
-| `/settings` | Account, security (3-step verified password change), plan cards |
+| `/pipeline`, `/pipeline/[id]` | AI pipeline jobs |
+| `/messages`, `/messages/[id]` | Real-time conversation threads, unread badges |
+| `/profile` | Edit name/bio/avatar, AI tools, portfolio, channel info |
+| `/settings` | Account, security, plan cards |
 | `/settings/style` | Clipper style profile for AI matching |
 | `/settings/channels` | Creator channel connections |
-| `/onboarding/clipper-style` | 6-step clipper onboarding (added AI tools as step 5) |
-| `/retainers` | Retainer contracts — active/pending/past, accept/decline/cancel inline |
-| `/login`, `/signup` | Auth pages — fully on Geist font now, SVG logo mark |
+| `/onboarding/clipper-style` | 6-step clipper onboarding — also used when creator adds clipper role |
+| `/retainers` | Retainer contracts — active/pending/past, accept/decline/cancel |
+| `/login`, `/signup` | Auth pages — signup now creates profiles row immediately (FK bug fixed) |
 
 ---
 
-## Reputation System (fully wired)
+## Landing Page (getclipped-app — Vercel)
+
+`components/landing/LandingPage.tsx` — major UX cleanup done Apr 10:
+
+- **Hero title**: "Find your editor. / Post a job. / Go viral."
+- **Hero sub**: trimmed to 2 sentences
+- **Nav**: 4 links (How it works / For creators / Auditions / Pricing) — removed "Why human" and "AI tools"
+- **Hero CTAs**: single "Sign up free →" button — removed ghost creator/editor buttons
+- **How It Works**: step descriptions trimmed to 1 line each
+- **For Who**: badge + H3 + 3 bullets each side — paragraphs removed
+- **Reputation**: headline + 1 sentence — feature list removed
+- **AI Tools section**: removed entirely (feature not built)
+- **Auditions**: bullet list removed — visual card does the talking
+- **Pricing**: $0 / $14.99 / $49.99. Pro: 1% platform fee on jobs, 10 jobs/month on Free. Agency: multi-account + team seats. Clipper note: "Editors join free — platform takes 10% per job."
+- **Section order**: Hero → Marquee → How It Works → For Who → Reputation → Auditions → Pricing → Footer
+
+---
+
+## Reputation System
 
 `lib/reputation.ts` — `recomputeReputation(clipperId)` fires after every rating:
 - Writes `avg_rating`, `ratings_count`, `completed_jobs_count`, `reputation_score` (0–100) to `profiles`
-- Score breakdown: avg rating (40pts) + completion rate (30pts) + social proof log scale (15pts) + repeat hire rate (15pts)
+- Score: avg rating (40pts) + completion rate (30pts) + social proof log scale (15pts) + repeat hire rate (15pts)
 
-Surfaced in `ProposalsPanel.tsx` under each clipper's name:
-- `⭐ 4.8 · 12 jobs` for rated clippers
-- `Top Clipper` accent badge if reputation_score ≥ 80
-- `New clipper` in muted text for zero-rating clippers
-- AI tool pills (up to 4, `+N more` overflow)
-
----
-
-## Retainer Contracts (fully wired)
-
-- Creator sees "Propose Retainer" accordion card on completed job pages (only if clipper was accepted, no existing retainer)
-- Clipper gets notified, can accept/decline from `/retainers`
-- Either party can cancel active retainers
-- Notifications: retainer_proposed / retainer_accepted / retainer_declined
-- Dashboard: active retainer count shown in creator quick action; retainers link for clippers
-
----
-
-## Job Saves / Watchlist (fully wired)
-
-- Bookmark icon on every JobCard and HeroJobCard — clippers only
-- `components/browse/SaveButton.tsx` — toggles via POST/DELETE `/api/jobs/[id]/save`
-- Browse page fetches saved IDs server-side; initial state correct on load
-- `job_saves` table: `user_id`, `job_id`, UNIQUE constraint
-
-If RLS not yet set up, run:
-```sql
-ALTER TABLE job_saves ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage their own saves"
-  ON job_saves FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-```
+Surfaced in `ProposalsPanel.tsx`: star rating, job count, Top Clipper badge (≥80 score), AI tool pills.
 
 ---
 
@@ -232,12 +253,13 @@ GET  /api/jobs/[id]/save        check saved status + count
 POST /api/jobs/[id]/save        save job
 DELETE /api/jobs/[id]/save      unsave job
 POST /api/retainers             creator proposes retainer
-PATCH /api/retainers/[id]       update retainer status (active/declined/cancelled)
+PATCH /api/retainers/[id]       update retainer status
 POST /api/conversations         create or get existing conversation
 GET/POST /api/conversations/[id]/messages
 POST /api/conversations/[id]/read
 GET  /api/notifications
 POST /api/notifications/read
+POST /api/profile/add-clipper-role   add clipper role to existing creator account ← NEW
 POST /api/stripe/connect/onboard
 GET  /api/stripe/connect/status
 POST /api/stripe/webhook
@@ -251,21 +273,22 @@ GET  /api/ai/job-search
 ```
 lib/
   supabase/server.ts, client.ts, admin.ts
-  notifications.ts      createNotification() — types include retainer_proposed/accepted/declined
+  notifications.ts      createNotification()
   reputation.ts         recomputeReputation()
   email.ts              Resend transactional emails
   stripe.ts             lazy Stripe client
   matching/computeMatchScore
 
 components/
-  AppShell.tsx
-  sidebar.tsx           nav includes /retainers
-  browse/JobCard.tsx    accepts isSaved, showSave props
-  browse/HeroJobCard.tsx
-  browse/SaveButton.tsx bookmark toggle component
-  browse/FilterBar.tsx, SortBar.tsx, AIJobSearch.tsx, SearchInput.tsx
+  AppShell.tsx          manages activeRole state + cookie switching
+  sidebar.tsx           role switcher toggle, "Add Clipper Account" in profile popover
+  landing/LandingPage.tsx
+  browse/JobCard.tsx
+  browse/HeroJobCard.tsx   fully clickable (onClick navigates whole card)
+  browse/SaveButton.tsx
+  dashboard/CreatorJobCard.tsx   redesigned Apr 10 — generous padding, stat layout
   dashboard/StatCard.tsx, QuickActionCard.tsx
-  jobs/ProposeRetainerCard.tsx   collapsible form on completed job pages
+  jobs/ProposeRetainerCard.tsx
 ```
 
 ---
@@ -286,38 +309,38 @@ NEXT_PUBLIC_APP_URL=https://app.getclipped.live   (http://localhost:3000 locally
 
 ## What's NOT Built Yet (priority order)
 
-### 1. Job invites
-Creator invites a specific clipper to apply to a job. `job_invites` table exists, `/api/jobs/[id]/invite` route exists — UI not built. Should surface on:
-- Job detail page (creator side): "Invite a clipper" button → search/select clipper
-- Clipper's browse/jobs pages: indicator when they've been invited
-
-### 2. Stripe Connect escrow UI
-API routes + DB columns exist. Missing creator-facing payment UI:
+### 1. Stripe Connect escrow UI
+API routes + DB columns exist. Missing:
 - After accepting a proposal, prompt creator to pay into escrow
 - Payment status on job detail for both parties
 - Clipper earnings display
 
-### 3. Creator analytics page
-No dedicated `/analytics` page. Dashboard shows basic stat cards (jobs posted, spent, completed). A full analytics page could show: auditions-per-job funnel, clipper repeat hire rate, average turnaround, budget breakdown.
+### 2. Creator analytics page
+No `/analytics` page. Dashboard shows basic stat cards. Full analytics could show: auditions-per-job funnel, repeat hire rate, average turnaround, budget breakdown.
 
-### 4. Retainer contracts — delivery tracking
-Active retainers have no delivery workflow yet. No way to log "I delivered this month's clips." Could add a simple delivery log or monthly check-in to active retainers.
+### 3. Retainer delivery tracking
+Active retainers have no delivery workflow. No way to log "I delivered this month's clips."
 
-### 5. Real-time notification badge
-Sidebar unread notification count is fetched server-side on page load — not live. Could subscribe via Supabase Realtime on the notifications table.
+### 4. Real-time notification badge
+Sidebar unread count is fetched server-side on page load — not live. Could subscribe via Supabase Realtime.
 
-### 6. Auth pages — forgot password page
-`/forgot-password` still uses legacy styling. Minor.
+### 5. Auth pages redesign
+`/login` and `/signup` still use the legacy Barlow design — flagged for redesign but not yet done.
+
+### 6. Mobile responsiveness pass
+Full mobile pass was planned (Option B from Apr 8 session) but not yet executed.
 
 ---
 
 ## Session History Summary
 
 - **Apr 8**: Logo, sidebar collapse, spacing pass, settings page, pipeline cleanup, dashboard refactor
-- **Apr 9 session 1**: Mobile responsiveness, strategic repositioning, reputation system, AI tools on profiles
-- **Apr 9 session 2 (this session)**:
-  - Clipper onboarding: added step 5 "Tools I Use" (6-step flow, saves to profiles.ai_tools)
-  - Auth pages: Barlow → Geist on headings/buttons, SVG logo mark in layout
-  - Retainer contracts: full feature — schema, API routes, /retainers page, ProposeRetainerCard, sidebar nav, notifications
-  - Dashboard: real Total Spent / Total Earned from DB, fixed "Open Auditions" → "Pending" (actual pending count), retainers in quick actions
-  - Job saves: SaveButton component, browse page passes saved state server-side, bookmark on JobCard + HeroJobCard
+- **Apr 9 session 1**: Mobile responsiveness planning, strategic repositioning, reputation system, AI tools on profiles
+- **Apr 9 session 2**: Clipper onboarding tools step, auth pages Geist font, retainer contracts (full feature), dashboard real stats, job saves/watchlist
+- **Apr 10 (this session)**:
+  - Landing page UX overhaul — cut copy, new hero title, pricing revamp ($0/$14.99/$49.99)
+  - Signup bug fix — profiles row now created immediately on signup (FK constraint error resolved)
+  - Dual role system — creator can add clipper account, role switcher in sidebar, cookie-based active role
+  - CreatorJobCard redesign — generous padding, stat layout, lightweight Manage link
+  - HeroJobCard made fully clickable
+  - Job detail page reads active_role cookie; !isOwner guard added to audition form
