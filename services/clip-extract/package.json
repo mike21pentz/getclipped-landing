@@ -1,0 +1,14 @@
+{
+  "name": "getclipped-clip-extract",
+  "version": "1.0.0",
+  "description": "yt-dlp + ffmpeg microservice for extracting YouTube clip segments",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "express": "^4.21.0",
+    "uuid": "^11.1.0"
+  }
+}
