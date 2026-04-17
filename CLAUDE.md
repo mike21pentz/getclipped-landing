@@ -6,6 +6,8 @@ Hiring marketplace connecting content creators/streamers with professional clipp
 
 **Never guess.** If you don't know the answer — especially for third-party tools, external dashboards (Vercel, Supabase, Namecheap, Stripe, etc.), or anything outside the codebase — say so clearly and look it up or ask. Guessing wastes the user's time.
 
+**Just do it.** If you can run a command yourself (dev server, build, tests, git, etc.), run it — don't tell the user to do it. Only ask the user to run something when it genuinely requires their input (e.g., logging into a service, opening a browser, checking a dashboard you can't access).
+
 ## Repo Structure
 
 ```
@@ -34,15 +36,19 @@ cd getclipped-app && npm run build   # type-check + build
 
 ---
 
+## MVP Focus — What We Are and Aren't Building Right Now
+
+**No AI features until MVP is complete.** Do not suggest, implement, or reference any AI/ML integrations (Claude, OpenAI, job matching scores, etc.) until the user explicitly asks to revisit them. The marketplace core comes first.
+
+**No Stripe Connect until country support is resolved.** South Africa is not supported as a Stripe Connect destination. Do not build Stripe-dependent features until the user has resolved this.
+
 ## What's Not Built Yet
 
-- Stripe Connect escrow (payments)
-- Real messaging (`/messages` is a placeholder)
-- Ratings / trust score
-- Auth pages redesign (login/signup still use legacy Barlow design)
+- Real messaging inbox (`/messages` list is a placeholder — conversations work but the inbox UI needs building)
+- Clip protection Phase 2 (server-side FFmpeg watermarking)
+- Stripe Connect escrow (blocked on SA country support)
 - Retainer contracts
 - Performance analytics
-- Clipper onboarding flow (new clippers are not routed to onboarding on signup)
 
 # GetClipped — Backend Context
 
